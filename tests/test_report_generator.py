@@ -92,3 +92,50 @@ def test_generate_all_reports(sample_full_df, sample_stagnation_df, tmp_path):
     plots_dir = tmp_path / "plots"
     assert plots_dir.exists()
     assert len(list(plots_dir.glob("*.png"))) >= 1
+
+
+def test_export_stagnation_report_with_indicators(tmp_path):
+    """Проверяет, что список stagnaion_indicators сериализуется в строку."""
+    data = {
+        'child_id': ['СП01'],
+        'domain': ['V'],
+        'start_date': [datetime(year=2026, month=1, day=1)],
+        'end_date': [datetime(year=2026, month=2, day=1)],
+        'duration_days': [31],
+        'start_score': [3],
+        'end_score': [3],
+        'comments': ['Плато'],
+        'risk_level': ['low'],
+        'stagnation_indicators': [['плато', 'нет прогресса']],
+        'has_stagnation_comment': [True],
+    }
+    df = pd.DataFrame(data)
+    output = tmp_path / "report"
+    export_stagnation_report(
+        stagnation_df=df, output_path=output, formats=['csv'])
+    csv_file = tmp_path / "report.csv"
+    df_read = pd.read_csv(filepath_or_buffer=csv_file)
+    assert df_read.loc[0, 'stagnation_indicators'] == 'плато, нет прогресса'
+
+
+def test_generate_summary_md_with_indicators(tmp_path):
+    """Проверяет, что в markdown попадает информация об индикаторах."""
+    data = {
+        'child_id': ['СП01'],
+        'domain': ['V'],
+        'start_date': [datetime(year=2026, month=1, day=1)],
+        'end_date': [datetime(year=2026, month=2, day=1)],
+        'duration_days': [31],
+        'start_score': [3],
+        'end_score': [3],
+        'comments': ['Плато'],
+        'risk_level': ['low'],
+        'stagnation_indicators': [['плато']],
+        'has_stagnation_comment': [True],
+    }
+    df = pd.DataFrame(data=data)
+    md_path = tmp_path / "summary.md"
+    generate_summary_md(stagnation_df=df, output_path=md_path, top_n=1)
+    content = md_path.read_text(encoding='utf-8')
+    assert 'Ключевые слова в комментариях' in content
+    assert 'плато' in content
