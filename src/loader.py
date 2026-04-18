@@ -151,11 +151,19 @@ def validate_and_clean(df: pd.DataFrame) -> pd.DataFrame:
     validate_score_range(df=df)
     df = convert_types(df=df)
 
-    critical_nulls = df[['child_id', 'domain',
-                         'session_date']].isnull().any(axis=1)
+    # Заменяем пустые строки на pd.NA в критических полях перед проверкой пропусков
+    critical_cols = ['child_id', 'domain', 'session_date']
+    for col in critical_cols:
+        if col in df.columns:
+            if col in ['child_id', 'domain']:
+                df[col] = df[col].replace(to_replace='', value=pd.NA)
+            elif col == 'session_date':
+                df[col] = df[col].replace(to_replace='', value=pd.NA)
+
+    critical_nulls = df[critical_cols].isnull().any(axis=1)
     if critical_nulls.any():
         logger.warning(
-            msg=f"Обнаружено {critical_nulls.sum()} записей с пропусками в критических полях. "
+            f"Обнаружено {critical_nulls.sum()} записей с пропусками в критических полях. "
             "Они будут удалены."
         )
         df = df[~critical_nulls]
