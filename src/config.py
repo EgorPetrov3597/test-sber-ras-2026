@@ -1,14 +1,14 @@
 """Конфигурация и допустимые значения для полей датасета."""
 
-# Допустимые значения для доменов (domain)
+# Допустимые домены (в нижнем регистре)
 ALLOWED_DOMAINS = {
-    'Verbal_Request',
-    'Listening',
-    'Social',
-    'Motor_Imitation'
+    'verbal_request',
+    'listening',
+    'social',
+    'motor_imitation'
 }
 
-# Допустимые значения для progress_flag (включая пустую строку)
+# Допустимые значения progress_flag (включая пустую строку)
 ALLOWED_PROGRESS_FLAGS = {
     'improved',
     'stagnant',
@@ -19,27 +19,29 @@ ALLOWED_PROGRESS_FLAGS = {
 PROGRESS_FLAG_CORRECTIONS = {
     'импровед': 'improved',
     'improoved': 'improved',
+    'stagnant': 'stagnant',
     'stagnat': 'stagnant',
     'none': '',
     'nan': '',
     'нет': ''
 }
 
-# Допустимые типы специалистов
+# Допустимые типы специалистов (в нижнем регистре)
 ALLOWED_SPECIALIST_TYPES = {
     'логопед',
     'дефектолог',
-    'ПА',  # поведенческий аналитик
+    'па',
     'психолог',
-    ''  # возможен пропуск
+    ''
 }
 
-# Маппинг для исправления specialist_type
+# Маппинг для исправления specialist_type (ключи в нижнем регистре)
 SPECIALIST_TYPE_CORRECTIONS = {
     'логопед': 'логопед',
     'дефектолог': 'дефектолог',
-    'па': 'ПА',
-    'поведенческий аналитик': 'ПА'
+    'па': 'па',
+    'поведенческий аналитик': 'па',
+    'психолог': 'психолог'
 }
 
 # Диапазон баллов
