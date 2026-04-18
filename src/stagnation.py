@@ -1,14 +1,12 @@
-"""
-Модуль анализа застоя прогресса (stagnation) у детей по доменам навыков.
-
-Основная функция:
-- detect_stagnation(df, min_days=28) -> pd.DataFrame
-  Возвращает отчёт с кейсами отсутствия прогресса за указанный период.
-"""
+"""Модуль анализа застоя прогресса (stagnation) у детей по доменам навыков."""
 
 import logging
+from typing import List
 
 import pandas as pd
+import numpy as np
+
+from src.config import STAGNATION_KEYWORDS
 
 logger = logging.getLogger(name=__name__)
 
@@ -17,14 +15,6 @@ def calculate_time_deltas(group: pd.DataFrame) -> pd.DataFrame:
     """
     Вычисляет разницу в баллах и днях между последовательными сессиями
     внутри группы (один ребёнок + один домен).
-
-    Args:
-        group: DataFrame, отсортированный по session_date.
-
-    Returns:
-        DataFrame с добавленными колонками:
-        - days_since_prev: количество дней с предыдущей сессии
-        - score_delta: изменение балла относительно предыдущей сессии
     """
     group = group.sort_values(by='session_date').copy()
     group['days_since_prev'] = group['session_date'].diff().dt.days
@@ -35,7 +25,7 @@ def calculate_time_deltas(group: pd.DataFrame) -> pd.DataFrame:
 def find_stagnation_periods(
     group: pd.DataFrame,
     min_days: int = 28
-) -> list[dict]:
+) -> List[dict]:
     """
     Ищет периоды застоя внутри группы (один ребёнок + один домен).
 
@@ -43,22 +33,8 @@ def find_stagnation_periods(
     - оценка не увеличивается (score_delta <= 0)
     - длительность периода (разница между первой и последней датой) >= min_days
 
-    Args:
-        group: DataFrame с колонками session_date, assessment_score, comment,
-               days_since_prev, score_delta (после calculate_time_deltas).
-        min_days: минимальная продолжительность периода без прогресса в днях.
-
     Returns:
-        Список словарей с информацией о периодах застоя:
-        - child_id
-        - domain
-        - start_date
-        - end_date
-        - duration_days
-        - start_score
-        - end_score
-        - comments (конкатенация комментариев за период)
-        - risk_level ('high', 'medium', 'low')
+        Список словарей с информацией о периодах застоя.
     """
     stagnation_periods = []
     group = group.sort_values(by='session_date').reset_index(drop=True)
@@ -66,19 +42,14 @@ def find_stagnation_periods(
     i = 0
     n = len(group)
     while i < n:
-        # Пропускаем первую запись, так как нет предыдущей для сравнения
         if i == 0:
             i += 1
             continue
 
         current = group.iloc[i]
-
-        # Проверяем отсутствие прогресса (оценка не выросла)
         if current['score_delta'] is not None and current['score_delta'] <= 0:
-            # Начало потенциального периода застоя
             start_idx = i - 1
             end_idx = i
-            # Расширяем период, пока оценка не растёт
             j = i + 1
             while j < n:
                 next_row = group.iloc[j]
@@ -88,19 +59,16 @@ def find_stagnation_periods(
                 else:
                     break
 
-            # Вычисляем длительность периода
             start_date = group.iloc[start_idx]['session_date']
             end_date = group.iloc[end_idx]['session_date']
             duration = (end_date - start_date).days
 
             if duration >= min_days:
-                # Собираем комментарии за период
                 comments = ' | '.join(
                     group.iloc[start_idx:end_idx +
                                1]['comment'].dropna().astype(dtype=str)
                 )
 
-                # Определяем уровень риска
                 if duration >= 60:
                     risk_level = 'high'
                 elif duration >= 42:
@@ -128,46 +96,52 @@ def find_stagnation_periods(
     return stagnation_periods
 
 
+def analyze_comments_for_stagnation(comments: str) -> tuple[List[str], bool]:
+    """
+    Анализирует строку комментариев на наличие ключевых слов стагнации.
+
+    Args:
+        comments: Строка с комментариями (уже в нижнем регистре).
+
+    Returns:
+        Кортеж (список найденных ключевых слов, флаг наличия хотя бы одного).
+    """
+    if not comments or pd.isna(comments):
+        return [], False
+    comments_lower = comments.lower()
+    found = [kw for kw in STAGNATION_KEYWORDS if kw in comments_lower]
+    has_any = bool(len(found) > 0)
+    return found, has_any
+
+
 def detect_stagnation(
     df: pd.DataFrame,
-    min_days: int = 28
+    min_days: int = 28,
+    use_comment_analysis: bool = False
 ) -> pd.DataFrame:
     """
     Находит детей без прогресса по доменам за период не менее min_days.
 
-    Анализ проводится для каждой комбинации (child_id, domain) отдельно.
-    Прогресс определяется как увеличение assessment_score. Если оценка
-    не растёт в течение >= min_days, такой период считается застоем.
-
     Args:
-        df: DataFrame с колонками:
-            - child_id (str)
-            - domain (str)
-            - session_date (datetime)
-            - assessment_score (float/int)
-            - comment (str)
-        min_days: минимальное количество дней без прогресса для включения в отчёт.
+        df: DataFrame с колонками child_id, domain, session_date, assessment_score, comment.
+        min_days: минимальное количество дней без прогресса.
+        use_comment_analysis: если True, анализирует комментарии на ключевые слова стагнации
+                              и добавляет колонки 'stagnation_indicators' и 'has_stagnation_comment'.
 
     Returns:
-        DataFrame с колонками:
-        - child_id
-        - domain
-        - start_date
-        - end_date
-        - duration_days
-        - start_score
-        - end_score
-        - comments
-        - risk_level
-        Строки соответствуют найденным периодам застоя. Если застоя нет,
-        возвращается пустой DataFrame с указанными колонками.
+        DataFrame с периодами застоя. Если use_comment_analysis=True, добавляются колонки
+        'stagnation_indicators' (список) и 'has_stagnation_comment' (bool).
     """
+    base_columns = [
+        'child_id', 'domain', 'start_date', 'end_date',
+        'duration_days', 'start_score', 'end_score', 'comments', 'risk_level'
+    ]
+    if use_comment_analysis:
+        base_columns.extend(
+            ['stagnation_indicators', 'has_stagnation_comment'])
+
     if df.empty:
-        return pd.DataFrame(columns=[
-            'child_id', 'domain', 'start_date', 'end_date',
-            'duration_days', 'start_score', 'end_score',
-            'comments', 'risk_level'
-        ])
+        return pd.DataFrame(columns=base_columns)
 
     required_cols = ['child_id', 'domain',
                      'session_date', 'assessment_score', 'comment']
@@ -178,37 +152,48 @@ def detect_stagnation(
     df_clean = df.dropna(subset=['session_date', 'assessment_score']).copy()
     if len(df_clean) < len(df):
         logger.warning(
-            msg=f"Удалено {len(df) - len(df_clean)} записей с пропущенными датами или оценками"
+            f"Удалено {len(df) - len(df_clean)} записей с пропущенными датами или оценками"
         )
 
     all_periods = []
-    # Группируем по ребёнку и домену
     for (child_id, domain), group in df_clean.groupby(by=['child_id', 'domain'], observed=True):
         if len(group) < 2:
-            continue  # недостаточно данных для анализа динамики
+            continue
 
         group_with_deltas = calculate_time_deltas(group=group)
         periods = find_stagnation_periods(
             group=group_with_deltas, min_days=min_days)
-        all_periods.extend(periods)
+
+        for period in periods:
+            if use_comment_analysis:
+                indicators, has_indicator = analyze_comments_for_stagnation(
+                    period['comments'])
+                period['stagnation_indicators'] = indicators
+                period['has_stagnation_comment'] = has_indicator
+            all_periods.append(period)
 
     if not all_periods:
-        return pd.DataFrame(columns=[...])
+        return pd.DataFrame(columns=base_columns)
 
     result_df = pd.DataFrame(data=all_periods)
 
     if not result_df.empty:
-        # Задаём упорядоченные категории: high < medium < low
+        if 'has_stagnation_comment' in result_df.columns:
+            result_df['has_stagnation_comment'] = result_df['has_stagnation_comment'].astype(
+                dtype=bool)
         risk_order = pd.CategoricalDtype(
             categories=['high', 'medium', 'low'], ordered=True)
         result_df['risk_level'] = result_df['risk_level'].astype(
             dtype=risk_order)
-
-        # Сортируем: сначала high, потом medium, потом low; внутри — по убыванию длительности
         result_df = result_df.sort_values(
             by=['risk_level', 'duration_days'],
             ascending=[True, False]
         )
         result_df = result_df.reset_index(drop=True)
 
-    return result_df
+    for col in base_columns:
+        if col not in result_df.columns:
+            result_df[col] = np.nan if col not in [
+                'stagnation_indicators'] else [[] for _ in range(len(result_df))]
+
+    return result_df[base_columns]

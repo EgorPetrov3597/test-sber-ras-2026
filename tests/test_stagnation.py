@@ -294,3 +294,54 @@ def test_detect_stagnation_sorting():
     assert list(result['risk_level']) == ['high', 'medium', 'low']
     # При одинаковом риске (low нет) порядок по длительности убывающий
     # Здесь все риски разные, проверяем сортировку по длительности внутри риска дополнительно не требуется.
+
+
+def test_detect_stagnation_with_comment_analysis():
+    """Проверяет, что при use_comment_analysis=True добавляются нужные колонки и находятся индикаторы."""
+    data = {
+        'child_id': ['СП01', 'СП01'],
+        'domain': ['V', 'V'],
+        'session_date': [datetime(year=2026, month=1, day=1), datetime(year=2026, month=2, day=1)],
+        'assessment_score': [3, 3],
+        'comment': ['Плато, нет прогресса', 'стабильный уровень'],
+    }
+    df = pd.DataFrame(data=data)
+    result = detect_stagnation(df=df, min_days=28, use_comment_analysis=True)
+    assert len(result) == 1
+    row = result.iloc[0]
+    assert 'stagnation_indicators' in result.columns
+    assert 'has_stagnation_comment' in result.columns
+    assert row['has_stagnation_comment'] == True
+    assert 'плато' in row['stagnation_indicators']
+    assert 'нет прогресса' in row['stagnation_indicators']
+
+
+def test_detect_stagnation_without_comment_analysis():
+    """Без флага колонки анализа комментариев не добавляются."""
+    data = {
+        'child_id': ['СП01', 'СП01'],
+        'domain': ['V', 'V'],
+        'session_date': [datetime(year=2026, month=1, day=1), datetime(year=2026, month=2, day=1)],
+        'assessment_score': [3, 3],
+        'comment': ['Плато', ''],
+    }
+    df = pd.DataFrame(data)
+    result = detect_stagnation(df=df, min_days=28, use_comment_analysis=False)
+    assert 'stagnation_indicators' not in result.columns
+    assert 'has_stagnation_comment' not in result.columns
+
+
+def test_analyze_comments_no_stagnation():
+    """Комментарии без ключевых слов не дают индикаторов."""
+    data = {
+        'child_id': ['СП01', 'СП01'],
+        'domain': ['V', 'V'],
+        'session_date': [datetime(year=2026, month=1, day=1), datetime(year=2026, month=2, day=1)],
+        'assessment_score': [3, 3],
+        'comment': ['Всё хорошо', 'Ребёнок старается'],
+    }
+    df = pd.DataFrame(data)
+    result = detect_stagnation(df=df, min_days=28, use_comment_analysis=True)
+    assert len(result) == 1
+    assert result.iloc[0]['has_stagnation_comment'] == False
+    assert result.iloc[0]['stagnation_indicators'] == []
