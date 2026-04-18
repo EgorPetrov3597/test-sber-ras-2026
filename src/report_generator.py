@@ -16,28 +16,27 @@ def export_stagnation_report(
     output_path: Path,
     formats: List[str] = ["csv"]
 ) -> None:
-    """
-    Сохраняет отчёт о застое в CSV и/или Excel.
-
-    Args:
-        stagnation_df: DataFrame с результатами detect_stagnation.
-        output_path: Базовый путь для сохранения (без расширения).
-        formats: Список форматов: 'csv', 'excel'.
-    """
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
+    export_df = stagnation_df.copy()
+
+    if 'stagnation_indicators' in export_df.columns:
+        export_df['stagnation_indicators'] = export_df['stagnation_indicators'].apply(
+            func=lambda x: ', '.join(x) if isinstance(x, list) else ''
+        )
+
     if "csv" in formats:
-        csv_path = output_path.with_suffix(suffix=".csv")
-        stagnation_df.to_csv(path_or_buf=csv_path,
-                             index=False, encoding="utf-8-sig")
+        csv_path = output_path.with_suffix(".csv")
+        export_df.to_csv(path_or_buf=csv_path,
+                         index=False, encoding="utf-8-sig")
         logger.info(msg=f"CSV отчёт сохранён: {csv_path}")
 
     if "excel" in formats:
         excel_path = output_path.with_suffix(suffix=".xlsx")
         try:
-            stagnation_df.to_excel(
-                excel_writer=excel_path, index=False, engine="openpyxl")
+            export_df.to_excel(excel_writer=excel_path,
+                               index=False, engine="openpyxl")
             logger.info(msg=f"Excel отчёт сохранён: {excel_path}")
         except ImportError:
             logger.warning(
@@ -66,7 +65,7 @@ def plot_dynamics(
         Путь к сохранённому файлу PNG или None, если данных недостаточно.
     """
     mask = (df['child_id'] == child_id) & (df['domain'] == domain)
-    child_data = df[mask].sort_values('session_date')
+    child_data = df[mask].sort_values(by='session_date')
 
     if child_data.empty or len(child_data) < 2:
         logger.warning(
@@ -162,6 +161,25 @@ def generate_summary_md(
                 f"- **Комментарии**: {row['comments'] if row['comments'] else '—'}",
                 "",
             ])
+        if 'has_stagnation_comment' in stagnation_df.columns:
+            if row['has_stagnation_comment']:
+                indicators = row.get('stagnation_indicators', [])
+                if isinstance(indicators, list) and indicators:
+                    ind_str = ', '.join(indicators)
+                    lines.append(
+                        f"- **Ключевые слова в комментариях**: {ind_str}")
+                else:
+                    lines.append(
+                        f"- **Ключевые слова в комментариях**: обнаружены")
+            else:
+                lines.append(
+                    f"- **Ключевые слова в комментариях**: не обнаружены")
+
+        lines.extend([
+            f"- **Комментарии**: {row['comments'] if row['comments'] else '—'}",
+            "",
+        ])
+
     else:
         lines.append("Застойных периодов не обнаружено. Позитивная динамика!")
 
@@ -198,7 +216,7 @@ def generate_all_reports(
     # 2. Графики для топ-N кейсов
     plots_dir = output_dir / "plots"
     if not stagnation_df.empty:
-        top_cases = stagnation_df.head(top_n_plots)
+        top_cases = stagnation_df.head(n=top_n_plots)
         for _, row in top_cases.iterrows():
             plot_dynamics(
                 df=full_df,
