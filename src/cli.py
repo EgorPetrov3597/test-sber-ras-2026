@@ -6,8 +6,8 @@ from pathlib import Path
 import click
 
 from src.loader import load_data
-from src.stagnation import detect_stagnation
 from src.report_generator import generate_all_reports
+from src.stagnation import detect_stagnation
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(name=__name__)
@@ -48,6 +48,26 @@ logger = logging.getLogger(name=__name__)
     help='Формат сохранения табличного отчёта.'
 )
 @click.option(
+    '--comment-analysis/--no-comment-analysis',
+    default=False,
+    show_default=True,
+    help='Анализировать комментарии на ключевые слова стагнации.'
+)
+@click.option(
+    '--risk-high',
+    type=int,
+    default=60,
+    show_default=True,
+    help='Порог высокого риска (дней).'
+)
+@click.option(
+    '--risk-medium',
+    type=int,
+    default=42,
+    show_default=True,
+    help='Порог среднего риска (дней).'
+)
+@click.option(
     '--interactive', '-I',
     is_flag=True,
     help='Запустить в интерактивном режиме (запрос параметров через консоль).'
@@ -58,6 +78,9 @@ def analyze(
     min_days: int,
     top_n: int,
     formats: str,
+    comment_analysis: bool,
+    risk_high: int,
+    risk_medium: int,
     interactive: bool
 ) -> None:
     """
@@ -68,7 +91,7 @@ def analyze(
     3. Генерация отчётов: CSV/Excel, графики динамики, summary.md.
     """
     if interactive:
-        click.echo("=== Интерактивный режим ===")
+        click.echo(message="=== Интерактивный режим ===")
         input = click.prompt(
             text='Путь к входному Excel-файлу',
             type=click.Path(exists=True, dir_okay=False, path_type=Path)
@@ -94,16 +117,37 @@ def analyze(
                 choices=['csv', 'excel', 'both'], case_sensitive=False),
             default='csv'
         )
+        comment_analysis = click.confirm(
+            text='Анализировать комментарии на ключевые слова стагнации?',
+            default=False
+        )
+        risk_high = click.prompt(
+            text='Порог высокого риска (дней)',
+            type=int,
+            default=60
+        )
+        risk_medium = click.prompt(
+            text='Порог среднего риска (дней)',
+            type=int,
+            default=42
+        )
     elif input is None:
         raise click.UsageError(
-            "Не указан входной файл. Укажите --input или запустите в интерактивном режиме (--interactive)."
+            message="Не указан входной файл. Укажите --input или запустите в интерактивном режиме (--interactive)."
         )
 
     click.echo(message=f"Загрузка данных из {input}...")
     df_clean = load_data(filepath=input)
 
-    click.echo(message=f"Анализ застоя (min_days={min_days})...")
-    stagnation_df = detect_stagnation(df=df_clean, min_days=min_days)
+    click.echo(
+        message=f"Анализ застоя (min_days={min_days}, risk_high={risk_high}, risk_medium={risk_medium})...")
+    stagnation_df = detect_stagnation(
+        df=df_clean,
+        min_days=min_days,
+        use_comment_analysis=comment_analysis,
+        risk_high_days=risk_high,
+        risk_medium_days=risk_medium
+    )
 
     click.echo(message=f"Найдено периодов застоя: {len(stagnation_df)}")
 
@@ -124,9 +168,20 @@ def analyze(
 
     click.echo(message="Готово!")
     if not stagnation_df.empty:
-        high_risk = (stagnation_df['risk_level'] == 'high').sum()
+        high_cnt = (stagnation_df['risk_level'] == 'high').sum()
+        medium_cnt = (stagnation_df['risk_level'] == 'medium').sum()
+        low_cnt = (stagnation_df['risk_level'] == 'low').sum()
+
+        click.echo(message="\n Общая статистика")
+        click.echo(message=f"Всего периодов застоя: {len(stagnation_df)}")
+        click.echo(message=f"Высокий риск (≥{risk_high} дней): {high_cnt}")
         click.echo(
-            message=f"Внимание: обнаружено {high_risk} кейсов с высоким риском.")
+            message=f"Средний риск ({risk_medium}–{risk_high-1} дней): {medium_cnt}")
+        click.echo(
+            message=f"Низкий риск ({min_days}–{risk_medium-1} дней): {low_cnt}")
+        click.echo(message="")
+    else:
+        click.echo(message="Застойных периодов не обнаружено.")
 
 
 if __name__ == '__main__':
