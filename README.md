@@ -22,6 +22,8 @@
 
 ## Установка и запуск
 
+### Способ 1: Локально с виртуальным окружением (рекомендуемый)
+
 1. **Клонируйте репозиторий**
    ```bash
    git clone https://github.com/yourusername/test-sber-ras-2026.git
@@ -64,6 +66,34 @@
     - summary.md – текстовый отчёт для супервизора.
 
     - plots/ – графики динамики для наиболее рискованных кейсов.
+
+### Способ 2: Через Docker (опционально)
+
+1. Соберите образ
+
+    ```bash
+    docker build -t sber-ras-analyzer .
+    ```
+
+2. Запустите контейнер с пробросом папок
+
+    ```bash
+    docker run --rm \
+        -v "$(pwd)/data:/app/data" \
+        -v "$(pwd)/output:/app/output" \
+        sber-ras-analyzer \
+        --input data/children_sessions.xlsx --output output/
+    ```
+
+    Для интерактивного режима добавьте флаг -it
+
+    ```bash
+    docker run --rm -it \
+        -v "$(pwd)/data:/app/data" \
+        -v "$(pwd)/output:/app/output" \
+         sber-ras-analyzer \
+        --interactive
+    ```
 
 ## Структура проекта
 
@@ -161,10 +191,6 @@ CLI на click объединяет все этапы и предоставля�
 
     Ключевые слова выделены эмпирически на основе предоставленных данных. Для повышения точности список можно расширить (лежит в config.py).
 
-5. Отсутствие контейнеризации
-
-    В задании контейнеризация указана как опция. Выбрана более лёгкая настройка через venv, что упрощает запуск для проверяющего.
-
 ## Проверка работы
 
 ### Запуск тестов
@@ -193,6 +219,22 @@ pytest tests/ -v
 python main.py --input data/children_sessions.xlsx
 ```
 
+``` text
+Загрузка данных из data/children_sessions.xlsx...
+INFO: Загружено 102 записей из data/children_sessions.xlsx
+INFO: Проверка колонок пройдена
+WARNING: Обнаружено 87 случаев, где specialist_type ошибочно записан в progress_flag. Выполняется перенос.
+INFO: После очистки осталось 102 записей
+Анализ застоя (min_days=28)...
+Найдено периодов застоя: 12
+Генерация отчётов в output...
+INFO: CSV отчёт сохранён: output/stagnation_report.csv
+INFO: График сохранён: output/plots/СП02_Listening_dynamics.png
+INFO: Текстовый отчёт сохранён: output/summary.md
+Готово!
+Внимание: обнаружено 2 кейсов с высоким риском.
+```
+
 ### Указание выходной директории и параметров
 
 ``` bash
@@ -216,3 +258,29 @@ python main.py --interactive
 ``` bash
 python main.py --help
 ```
+
+``` text
+$ python main.py --help
+Usage: main.py [OPTIONS]
+
+  Запускает полный пайплайн анализа данных:
+  1. Загрузка и валидация входного Excel-файла.
+  2. Поиск периодов застоя (функция detect_stagnation).
+  3. Генерация отчётов: CSV/Excel, графики динамики, summary.md.
+
+Options:
+  -i, --input PATH       Путь к входному Excel-файлу (обязательно).
+  -o, --output PATH      Директория для результатов [default: output]
+  --min-days INTEGER     Минимальная длительность застоя в днях [default: 28]
+  --top-n INTEGER        Количество кейсов для построения графиков [default: 5]
+  --formats [csv|excel|both] Формат табличного отчёта [default: csv]
+  --comment-analysis / --no-comment-analysis Анализ комментариев на ключевые слова
+  -I, --interactive      Запустить в интерактивном режиме
+  --help                 Показать эту справку
+```
+
+### Примеры сгенерированных графиков
+
+![сп06_listening_dynamics.png](assets/сп06_listening_dynamics.png)
+
+![сп21_verbal_request_dynamics.png](assets/сп21_verbal_request_dynamics.png)
