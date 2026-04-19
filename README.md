@@ -141,15 +141,15 @@ test-sber-ras-2026/
 
 2. Анализ застоя (stagnation.py)
 
-    - Группировка данных по child_id и domain.
+    - Группировка данных по `child_id` и `domain`.
 
     - Расчёт временных дельт и изменений баллов между сессиями.
 
-    - Поиск последовательных периодов без роста баллов длительностью ≥ min_days (по умолчанию 28 дней).
+    - Поиск последовательных периодов без роста баллов длительностью ≥ `min_days` (по умолчанию 28 дней).
 
-    - Назначение уровня риска (high ≥ 60 дней, medium 42–59 дней, low 28–41 день).
+    - Назначение уровня риска на основе настраиваемых порогов (`--risk-high`, `--risk-medium`): по умолчанию `high` ≥ 60 дней, `medium` 42–59 дней, `low` 28–41 день.
 
-    - Опциональный анализ комментариев на ключевые слова стагнации (флаг --comment-analysis).
+    - Опциональный анализ комментариев на ключевые слова стагнации (флаг `--comment-analysis`).
 
 3. Генерация отчётов (report_generator.py)
 
@@ -220,25 +220,34 @@ python main.py --input data/children_sessions.xlsx
 ```
 
 ``` text
-Загрузка данных из data/children_sessions.xlsx...
-INFO: Загружено 102 записей из data/children_sessions.xlsx
+Загрузка данных из data\children_sessions (Data Scientist).xlsx...
+INFO: Загружено 102 записей из data\children_sessions (Data Scientist).xlsx
 INFO: Проверка колонок пройдена
 WARNING: Обнаружено 87 случаев, где specialist_type ошибочно записан в progress_flag. Выполняется перенос.
 INFO: После очистки осталось 102 записей
-Анализ застоя (min_days=28)...
-Найдено периодов застоя: 12
+Анализ застоя (min_days=28, risk_high=60, risk_medium=42)...
+
+ Общая статистика
+Всего периодов застоя: 25
+Высокий риск (≥60 дней): 9
+Средний риск (42–59 дней): 0
+Низкий риск (28–41 дней): 16
+
 Генерация отчётов в output...
-INFO: CSV отчёт сохранён: output/stagnation_report.csv
-INFO: График сохранён: output/plots/СП02_Listening_dynamics.png
-INFO: Текстовый отчёт сохранён: output/summary.md
+INFO: CSV отчёт сохранён: output\stagnation_report.csv
+INFO: График сохранён: output\plots\сп10_listening_dynamics.png
+INFO: График сохранён: output\plots\сп21_verbal_request_dynamics.png
+INFO: График сохранён: output\plots\сп02_listening_dynamics.png
+INFO: График сохранён: output\plots\сп17_verbal_request_dynamics.png
+INFO: График сохранён: output\plots\сп06_listening_dynamics.png
+INFO: Текстовый отчёт сохранён: output\summary.md
 Готово!
-Внимание: обнаружено 2 кейсов с высоким риском.
 ```
 
 ### Указание выходной директории и параметров
 
 ``` bash
-python main.py -i data/children_sessions.xlsx -o results/ --min-days 30 --top-n 10 --formats both
+python main.py -i data/children_sessions.xlsx -o results/ --min-days 30 --top-n 10 --risk-high 50 --risk-medium 35 --formats both
 ```
 
 ### Включение анализа комментариев
@@ -260,23 +269,28 @@ python main.py --help
 ```
 
 ``` text
-$ python main.py --help
 Usage: main.py [OPTIONS]
 
-  Запускает полный пайплайн анализа данных:
-  1. Загрузка и валидация входного Excel-файла.
-  2. Поиск периодов застоя (функция detect_stagnation).
-  3. Генерация отчётов: CSV/Excel, графики динамики, summary.md.
+Запускает полный пайплайн анализа данных:
+
+Загрузка и валидация входного Excel-файла.
+
+Поиск периодов застоя (функция detect_stagnation).
+
+Генерация отчётов: CSV/Excel, графики динамики, summary.md.
 
 Options:
-  -i, --input PATH       Путь к входному Excel-файлу (обязательно).
-  -o, --output PATH      Директория для результатов [default: output]
-  --min-days INTEGER     Минимальная длительность застоя в днях [default: 28]
-  --top-n INTEGER        Количество кейсов для построения графиков [default: 5]
-  --formats [csv|excel|both] Формат табличного отчёта [default: csv]
-  --comment-analysis / --no-comment-analysis Анализ комментариев на ключевые слова
-  -I, --interactive      Запустить в интерактивном режиме
-  --help                 Показать эту справку
+-i, --input PATH Путь к входному Excel-файлу (обязательно).
+-o, --output PATH Директория для результатов [default: output]
+--min-days INTEGER Минимальная длительность застоя в днях [default: 28]
+--top-n INTEGER Количество кейсов для построения графиков [default: 5]
+--formats [csv|excel|both] Формат табличного отчёта [default: csv]
+--comment-analysis / --no-comment-analysis
+Анализировать комментарии на ключевые слова стагнации [default: no-comment-analysis]
+--risk-high INTEGER Порог высокого риска (дней) [default: 60]
+--risk-medium INTEGER Порог среднего риска (дней) [default: 42]
+-I, --interactive Запустить в интерактивном режиме
+--help Показать эту справку
 ```
 
 ### Примеры сгенерированных графиков
