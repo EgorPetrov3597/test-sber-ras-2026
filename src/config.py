@@ -48,6 +48,12 @@ SPECIALIST_TYPE_CORRECTIONS = {
 SCORE_MIN = 1
 SCORE_MAX = 10
 
+# Пороги длительности для уровней риска (в днях)
+RISK_HIGH_DAYS = 60
+RISK_MEDIUM_DAYS = 42
+# Всё, что >= RISK_MEDIUM_DAYS и < RISK_HIGH_DAYS — medium,
+# от min_days до RISK_MEDIUM_DAYS — low.
+
 STAGNATION_KEYWORDS = [
     'плато',
     'без изменений',
