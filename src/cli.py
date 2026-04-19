@@ -151,6 +151,22 @@ def analyze(
 
     click.echo(message=f"Найдено периодов застоя: {len(stagnation_df)}")
 
+    if not stagnation_df.empty:
+        high_cnt = (stagnation_df['risk_level'] == 'high').sum()
+        medium_cnt = (stagnation_df['risk_level'] == 'medium').sum()
+        low_cnt = (stagnation_df['risk_level'] == 'low').sum()
+
+        click.echo(message="\n Общая статистика")
+        click.echo(message=f"Всего периодов застоя: {len(stagnation_df)}")
+        click.echo(message=f"Высокий риск (≥{risk_high} дней): {high_cnt}")
+        click.echo(
+            message=f"Средний риск ({risk_medium}–{risk_high-1} дней): {medium_cnt}")
+        click.echo(
+            message=f"Низкий риск ({min_days}–{risk_medium-1} дней): {low_cnt}")
+        click.echo(message="")
+    else:
+        click.echo(message="Застойных периодов не обнаружено.")
+
     export_formats = []
     if formats == 'both':
         export_formats = ['csv', 'excel']
@@ -167,21 +183,6 @@ def analyze(
     )
 
     click.echo(message="Готово!")
-    if not stagnation_df.empty:
-        high_cnt = (stagnation_df['risk_level'] == 'high').sum()
-        medium_cnt = (stagnation_df['risk_level'] == 'medium').sum()
-        low_cnt = (stagnation_df['risk_level'] == 'low').sum()
-
-        click.echo(message="\n Общая статистика")
-        click.echo(message=f"Всего периодов застоя: {len(stagnation_df)}")
-        click.echo(message=f"Высокий риск (≥{risk_high} дней): {high_cnt}")
-        click.echo(
-            message=f"Средний риск ({risk_medium}–{risk_high-1} дней): {medium_cnt}")
-        click.echo(
-            message=f"Низкий риск ({min_days}–{risk_medium-1} дней): {low_cnt}")
-        click.echo(message="")
-    else:
-        click.echo(message="Застойных периодов не обнаружено.")
 
 
 if __name__ == '__main__':
