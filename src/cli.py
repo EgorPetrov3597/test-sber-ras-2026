@@ -149,8 +149,6 @@ def analyze(
         risk_medium_days=risk_medium
     )
 
-    click.echo(message=f"Найдено периодов застоя: {len(stagnation_df)}")
-
     if not stagnation_df.empty:
         high_cnt = (stagnation_df['risk_level'] == 'high').sum()
         medium_cnt = (stagnation_df['risk_level'] == 'medium').sum()
