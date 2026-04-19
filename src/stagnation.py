@@ -3,10 +3,10 @@
 import logging
 from typing import List
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 
-from src.config import STAGNATION_KEYWORDS
+from src.config import RISK_HIGH_DAYS, RISK_MEDIUM_DAYS, STAGNATION_KEYWORDS
 
 logger = logging.getLogger(name=__name__)
 
@@ -24,7 +24,9 @@ def calculate_time_deltas(group: pd.DataFrame) -> pd.DataFrame:
 
 def find_stagnation_periods(
     group: pd.DataFrame,
-    min_days: int = 28
+    min_days: int = 28,
+    risk_high_days: int = RISK_HIGH_DAYS,
+    risk_medium_days: int = RISK_MEDIUM_DAYS
 ) -> List[dict]:
     """
     Ищет периоды застоя внутри группы (один ребёнок + один домен).
@@ -69,9 +71,9 @@ def find_stagnation_periods(
                                1]['comment'].dropna().astype(dtype=str)
                 )
 
-                if duration >= 60:
+                if duration >= risk_high_days:
                     risk_level = 'high'
-                elif duration >= 42:
+                elif duration >= risk_medium_days:
                     risk_level = 'medium'
                 else:
                     risk_level = 'low'
@@ -117,7 +119,9 @@ def analyze_comments_for_stagnation(comments: str) -> tuple[List[str], bool]:
 def detect_stagnation(
     df: pd.DataFrame,
     min_days: int = 28,
-    use_comment_analysis: bool = False
+    use_comment_analysis: bool = False,
+    risk_high_days: int = RISK_HIGH_DAYS,
+    risk_medium_days: int = RISK_MEDIUM_DAYS
 ) -> pd.DataFrame:
     """
     Находит детей без прогресса по доменам за период не менее min_days.
@@ -162,7 +166,10 @@ def detect_stagnation(
 
         group_with_deltas = calculate_time_deltas(group=group)
         periods = find_stagnation_periods(
-            group=group_with_deltas, min_days=min_days)
+            group=group_with_deltas,
+            min_days=min_days,
+            risk_high_days=risk_high_days,
+            risk_medium_days=risk_medium_days)
 
         for period in periods:
             if use_comment_analysis:
