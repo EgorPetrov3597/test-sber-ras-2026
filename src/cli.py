@@ -5,6 +5,7 @@ from pathlib import Path
 
 import click
 
+from src.config import RISK_HIGH_DAYS, RISK_MEDIUM_DAYS
 from src.loader import load_data
 from src.report_generator import generate_all_reports
 from src.stagnation import detect_stagnation
@@ -56,14 +57,14 @@ logger = logging.getLogger(name=__name__)
 @click.option(
     '--risk-high',
     type=int,
-    default=60,
+    default=RISK_HIGH_DAYS,
     show_default=True,
     help='Порог высокого риска (дней).'
 )
 @click.option(
     '--risk-medium',
     type=int,
-    default=42,
+    default=RISK_MEDIUM_DAYS,
     show_default=True,
     help='Порог среднего риска (дней).'
 )
@@ -124,12 +125,12 @@ def analyze(
         risk_high = click.prompt(
             text='Порог высокого риска (дней)',
             type=int,
-            default=60
+            default=RISK_HIGH_DAYS
         )
         risk_medium = click.prompt(
             text='Порог среднего риска (дней)',
             type=int,
-            default=42
+            default=RISK_MEDIUM_DAYS
         )
     elif input is None:
         raise click.UsageError(
